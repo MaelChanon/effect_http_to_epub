@@ -1,0 +1,6 @@
+node_modules
+dist
+out
+bench/fixtures
+bench/results/raw
+bench/rust/target
