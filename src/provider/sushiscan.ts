@@ -1,11 +1,12 @@
 import * as Effect from "effect/Effect"
-import { MangaInfo, type ParseError } from "../domain.js"
+import type { MangaInfo, ParseError } from "../domain.js"
 import {
   type ChapterRange,
   collectPages,
   type Document,
   fetchDocument,
   imageSrc,
+  mangaInfo,
   requireOne,
   resolveAll,
   scrapeChapters,
@@ -19,7 +20,7 @@ export const mangaStream = (name: string, pagesOf: (doc: Document) => Effect.Eff
       const doc = yield* fetchDocument(`${base}/catalogue/${tag}/`)
       const title = yield* requireOne(doc, ".entry-title")
       const cover = yield* requireOne(doc, ".seriestucontl img")
-      return new MangaInfo({
+      return mangaInfo({
         tag,
         name: title.text.trim(),
         coverUrl: imageSrc(cover),

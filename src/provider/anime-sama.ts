@@ -2,8 +2,8 @@ import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import { parse } from "node-html-parser"
-import { Chapter, MangaInfo, ParseError } from "../domain.js"
-import { type ChapterRange, collectPages, fetchDocument, fetchText, requireOne, resolveAll, site, tagsFrom } from "./provider.js"
+import { Chapter, type MangaInfo, ParseError } from "../domain.js"
+import { type ChapterRange, collectPages, fetchDocument, fetchText, mangaInfo, requireOne, resolveAll, site, tagsFrom } from "./provider.js"
 
 const SINGLE_PAGES_SUFFIX = " pp"
 const JS_STRING_OR_COMMENT = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\/\*[\s\S]*?(?:\*\/|$)|\/\/.*|<!--.*/g
@@ -43,7 +43,7 @@ export const AnimeSama = site("anime-sama", (base) => {
   const mangaFor = Effect.fnUntraced(function*(slug: string, version: string, tag: string) {
     const page = yield* readerPage(slug, version)
     const sizes = yield* chapterSizes(page.scanName)
-    return new MangaInfo({ tag, name: page.name, coverUrl: page.coverUrl, chapterCount: sizes.length })
+    return mangaInfo({ tag, name: page.name, coverUrl: page.coverUrl, chapterCount: sizes.length })
   })
 
   return {

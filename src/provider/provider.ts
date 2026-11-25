@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Semaphore from "effect/Semaphore"
 import { type HTMLElement, parse } from "node-html-parser"
-import { Chapter, type ClearanceRequired, type FetchError, type MangaInfo, ParseError } from "../domain.js"
+import { Chapter, type ClearanceRequired, type FetchError, MangaInfo, ParseError } from "../domain.js"
 import { Fetcher, type RequestOptions } from "../http/fetcher.js"
 import { type Clearance, headersFor, makeSession, type Session } from "../http/session.js"
 
@@ -104,6 +104,21 @@ export const requireOne = (doc: Document, selector: string) => {
   return el ? Effect.succeed(el) : Effect.fail(new ParseError({ url: doc.url, what: `"${selector}"` }))
 }
 
+const detach = (text: string) => structuredClone(text)
+
+export const mangaInfo = (fields: {
+  readonly tag: string
+  readonly name: string
+  readonly coverUrl: string
+  readonly chapterCount: number
+}) =>
+  new MangaInfo({
+    tag: detach(fields.tag),
+    name: detach(fields.name),
+    coverUrl: detach(fields.coverUrl),
+    chapterCount: fields.chapterCount
+  })
+
 export const imageSrc = (el: HTMLElement) => (el.getAttribute("data-src") ?? el.getAttribute("src") ?? "").trim()
 
 export const tagsFrom = (elements: ReadonlyArray<HTMLElement>, attribute = "href") =>
@@ -121,7 +136,7 @@ export const scrapeChapters = (
     ({ url, number }) =>
       fetchDocument(url).pipe(
         Effect.flatMap(pagesOf),
-        Effect.map((pages) => new Chapter({ number, pages }))
+        Effect.map((pages) => new Chapter({ number, pages: pages.map(detach) }))
       ),
     { concurrency: 10 }
   )
@@ -134,7 +149,7 @@ export const collectPages = <E, R>(
     const seen = new Set<string>()
     for (let index = first;; index++) {
       const before = seen.size
-      for (const tag of yield* page(index)) seen.add(tag)
+      for (const tag of yield* page(index)) seen.add(detach(tag))
       if (seen.size === before) return [...seen]
     }
   })

@@ -1,10 +1,11 @@
 import * as Effect from "effect/Effect"
-import { MangaInfo, ParseError } from "../domain.js"
+import { type MangaInfo, ParseError } from "../domain.js"
 import {
   type ChapterRange,
   collectPages,
   fetchDocument,
   imageSrc,
+  mangaInfo,
   requireOne,
   resolveAll,
   scrapeChapters,
@@ -28,7 +29,7 @@ export const WeebCentral = site("weebcentral", (base) => {
     const doc = yield* fetchDocument(`${base}/series/${tag}`)
     const title = yield* requireOne(doc, "h1")
     const cover = yield* requireOne(doc, `meta[property="og:image"]`)
-    return new MangaInfo({
+    return mangaInfo({
       tag,
       name: title.text.trim(),
       coverUrl: cover.getAttribute("content") ?? "",
