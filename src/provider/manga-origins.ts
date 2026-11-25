@@ -1,12 +1,13 @@
 import * as Effect from "effect/Effect"
 import { parse } from "node-html-parser"
-import { MangaInfo } from "../domain.js"
+import type { MangaInfo } from "../domain.js"
 import {
   type ChapterRange,
   collectPages,
   fetchDocument,
   fetchText,
   imageSrc,
+  mangaInfo,
   requireOne,
   resolveAll,
   scrapeChapters,
@@ -19,7 +20,7 @@ export const MangaOrigins = site("manga-origins", (base) => {
     const doc = yield* fetchDocument(`${base}/oeuvre/${tag}/`)
     const title = yield* requireOne(doc, ".post-title>h1")
     const cover = doc.root.querySelector(".ori-sr-cover img")
-    return new MangaInfo({
+    return mangaInfo({
       tag,
       name: title.text.trim(),
       coverUrl: cover ? imageSrc(cover) : "",
