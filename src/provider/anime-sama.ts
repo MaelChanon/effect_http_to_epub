@@ -3,7 +3,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import { parse } from "node-html-parser"
 import { Chapter, MangaInfo, ParseError } from "../domain.js"
-import { collectPages, fetchDocument, fetchText, requireOne, resolveAll, site, tagsFrom } from "./provider.js"
+import { type ChapterRange, collectPages, fetchDocument, fetchText, requireOne, resolveAll, site, tagsFrom } from "./provider.js"
 
 const SINGLE_PAGES_SUFFIX = " pp"
 const JS_STRING_OR_COMMENT = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\/\*[\s\S]*?(?:\*\/|$)|\/\/.*|<!--.*/g
@@ -52,7 +52,7 @@ export const AnimeSama = site("anime-sama", (base) => {
       return yield* mangaFor(slug, version, tag)
     }),
 
-    getChapters: Effect.fn("http_to_epub.AnimeSama.getChapters")(function*(info: MangaInfo) {
+    getChapters: Effect.fn("http_to_epub.AnimeSama.getChapters")(function*(info: MangaInfo, range?: ChapterRange) {
       const { slug, version } = yield* resolveVersion(info.tag)
       const { scanName } = yield* readerPage(slug, version)
       const main = yield* chapterSizes(scanName)
@@ -75,7 +75,7 @@ export const AnimeSama = site("anime-sama", (base) => {
             (_, i) => `${base}/s2/scans/${name}/${chapter}/${i + 1}.jpg`
           )
         })
-      })
+      }).slice(range?.from, range?.to)
     }),
 
     getAllMangas: () =>

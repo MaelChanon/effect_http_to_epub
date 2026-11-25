@@ -75,6 +75,16 @@ describe("Fetcher", () => {
     }).pipe(Effect.provide(fetcherWith([ok], calls)))
   })
 
+  it.live("always sends an Accept header, which the caller can override", () => {
+    const calls: Array<HttpClientRequest.HttpClientRequest> = []
+    return Effect.gen(function*() {
+      const fetcher = yield* Fetcher
+      yield* fetcher.text("https://x/a")
+      yield* fetcher.text("https://x/b", { headers: { accept: "text/html" } })
+      expect(calls.map((call) => call.headers["accept"])).toEqual(["*/*", "text/html"])
+    }).pipe(Effect.provide(fetcherWith([ok], calls)))
+  })
+
   it.live("posts a form when one is given", () => {
     const calls: Array<HttpClientRequest.HttpClientRequest> = []
     return Effect.gen(function*() {

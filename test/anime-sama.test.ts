@@ -90,6 +90,7 @@ describe("AnimeSama provider", () => {
         [`${base}/s2/scans/X%20Name/1/1.jpg`, `${base}/s2/scans/X%20Name/1/2.jpg`],
         [`${base}/s2/scans/X%20Name%20pp/2/1.jpg`]
       ])
+      expect(yield* provider.getChapters(info, { from: 1 })).toEqual(chapters.slice(1))
       expect(calls.every((call) => call.options?.headers?.["cookie"] === "cf_clearance=good-token")).toBe(true)
       expect(calls.every((call) => call.options?.headers?.["user-agent"] === "browser/1.0")).toBe(true)
     }).pipe(Effect.provide(animeSama(calls)))

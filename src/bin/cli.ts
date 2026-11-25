@@ -32,17 +32,16 @@ const appLayer = (provider: Layer.Layer<Provider, never, Fetcher>, concurrency: 
     Layer.provide(NodeHttpClient.layerUndici)
   )
 
-const fetchAndBuild = (tag: string, from: number, to: number | undefined, out: string, options: EpubOptions) =>
+const fetchAndBuild = (tag: string, lang: string, from: number, to: number | undefined, out: string, options: EpubOptions) =>
   Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem
     const provider = yield* Provider
     const builder = yield* EpubBuilder
     const info = yield* provider.getMangaInfo(tag)
-    const chapters = yield* provider.getChapters(info)
-    const selected = chapters.slice(from, to)
-    yield* Console.log(`${info.name}: ${chapters.length} chapters, building ${selected.length} (${provider.name})`)
+    const chapters = yield* provider.getChapters(info, { from, to })
+    yield* Console.log(`${info.name}: ${info.chapterCount} chapters, building ${chapters.length} (${provider.name})`)
     const started = performance.now()
-    yield* builder.build({ info, chapters: selected, creator: "http_to_epub", lang: "fr-FR", session: provider.session }, options).pipe(toFile(out))
+    yield* builder.build({ info, chapters, creator: "http_to_epub", lang, session: provider.session }, options).pipe(toFile(out))
     const { size } = yield* fs.stat(out)
     const megabytes = (Number(ByteSize.toBigInt(size)) / 1024 / 1024).toFixed(1)
     yield* Console.log(`${out} (${megabytes} MB) in ${((performance.now() - started) / 1000).toFixed(2)}s`)
@@ -88,7 +87,7 @@ const out = Flag.String("out").pipe(Flag.withAlias("o"), Flag.withDefault("out/b
 const build = Command.make(
   "build",
   {
-    site: Flag.Literals("site", ["sushiscan", "sushiscan-net", "manga-origins", "anime-sama"]),
+    site: Flag.Literals("site", ["sushiscan", "sushiscan-net", "manga-origins", "anime-sama", "weebcentral"]),
     cfClearance: Flag.String("cf-clearance").pipe(
       Flag.optional,
       Flag.withDescription("cf_clearance token, when the site is behind a Cloudflare challenge")
@@ -115,7 +114,7 @@ const build = Command.make(
       ? clearanceFromToken(f.cfClearance.value, f.userAgent.value)
       : undefined
     const to = f.to._tag === "Some" ? f.to.value : undefined
-    return fetchAndBuild(f.tag, f.from, to, outputPath(f.out, f.kepub), toOptions(f)).pipe(
+    return fetchAndBuild(f.tag, site.lang, f.from, to, outputPath(f.out, f.kepub), toOptions(f)).pipe(
       Effect.provide(appLayer(site.make(baseUrl, clearance), f))
     )
   }
@@ -131,7 +130,7 @@ const manifest = Command.make(
       const fs = yield* FileSystem.FileSystem
       const json = yield* fs.readFileString(f.manifest)
       const decoded = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest))(json)
-      yield* fetchAndBuild(decoded.info.tag, 0, undefined, outputPath(f.out, f.kepub), toOptions(f)).pipe(
+      yield* fetchAndBuild(decoded.info.tag, "fr-FR", 0, undefined, outputPath(f.out, f.kepub), toOptions(f)).pipe(
         Effect.provide(appLayer(Provider.fromManifest(decoded), f))
       )
     })

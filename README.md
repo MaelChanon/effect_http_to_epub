@@ -26,7 +26,10 @@ http_to_epub build --help
 `--from` and `--to` select chapters by index, `to` excluded. Broken pages are
 skipped unless `--strict` is set.
 
-Supported sites: `sushiscan`, `sushiscan-net`, `manga-origins`, `anime-sama`.
+Supported sites: `sushiscan`, `sushiscan-net`, `manga-origins`, `anime-sama`,
+`weebcentral`. For `weebcentral`, the tag is the series id in its URL
+(`/series/<id>/<name>`). Its page requests are spaced 10 seconds apart, as its
+robots.txt asks, so prefer small `--from`/`--to` ranges.
 
 ### Cloudflare
 
@@ -47,8 +50,8 @@ const program = Effect.gen(function*() {
   const provider = yield* Provider
   const builder = yield* EpubBuilder
   const info = yield* provider.getMangaInfo("chainsaw-man")
-  const chapters = yield* provider.getChapters(info)
-  const book = { info, chapters: chapters.slice(0, 2), creator: "me", lang: "fr-FR", session: provider.session }
+  const chapters = yield* provider.getChapters(info, { from: 0, to: 2 })
+  const book = { info, chapters, creator: "me", lang: "fr-FR", session: provider.session }
   yield* builder.build(book, { width: 1072, height: 1448, splitDoublePages: true }).pipe(toFile("out/csm.epub"))
 })
 
@@ -73,7 +76,7 @@ Effect.runPromise(program.pipe(Effect.provide(AppLayer)))
   `Fetcher.layer({ retries, requestTimeoutMillis, ... })` and
   `EpubBuilder.layer({ fetchConcurrency, encodeConcurrency })`.
   `encodeConcurrency` is shared by all concurrent builds.
-- Site layers: `SushiScan`, `SushiScanNet`, `MangaOrigins`, `AnimeSama`
+- Site layers: `SushiScan`, `SushiScanNet`, `MangaOrigins`, `AnimeSama`, `WeebCentral`
   (`(baseUrl, clearance?)`), or `Provider.fromManifest` for a fixed page list.
   Building a layer does no I/O, so creating one per request is cheap.
 - Errors are typed: `FetchError`, `ClearanceRequired`, `ParseError`,

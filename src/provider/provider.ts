@@ -1,6 +1,8 @@
+import * as Clock from "effect/Clock"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Semaphore from "effect/Semaphore"
 import { type HTMLElement, parse } from "node-html-parser"
 import { Chapter, type ClearanceRequired, type FetchError, type MangaInfo, ParseError } from "../domain.js"
 import { Fetcher, type RequestOptions } from "../http/fetcher.js"
@@ -8,11 +10,16 @@ import { type Clearance, headersFor, makeSession, type Session } from "../http/s
 
 export type ProviderError = FetchError | ClearanceRequired | ParseError
 
+export interface ChapterRange {
+  readonly from?: number | undefined
+  readonly to?: number | undefined
+}
+
 export class Provider extends Context.Service<Provider, {
   readonly name: string
   readonly session: Session | undefined
   readonly getMangaInfo: (tag: string) => Effect.Effect<MangaInfo, ProviderError>
-  readonly getChapters: (info: MangaInfo) => Effect.Effect<ReadonlyArray<Chapter>, ProviderError>
+  readonly getChapters: (info: MangaInfo, range?: ChapterRange) => Effect.Effect<ReadonlyArray<Chapter>, ProviderError>
   readonly getAllMangas: () => Effect.Effect<ReadonlyArray<MangaInfo>, ProviderError>
 }>()("http_to_epub/Provider") {
   static readonly fromManifest = (manifest: { info: MangaInfo; chapters: ReadonlyArray<Chapter> }) =>
@@ -20,18 +27,26 @@ export class Provider extends Context.Service<Provider, {
       name: "manifest",
       session: undefined,
       getMangaInfo: () => Effect.succeed(manifest.info),
-      getChapters: () => Effect.succeed(manifest.chapters),
+      getChapters: (_info, range) => Effect.succeed(manifest.chapters.slice(range?.from, range?.to)),
       getAllMangas: () => Effect.succeed([manifest.info])
     })
 }
 
 export interface Site {
   readonly getMangaInfo: (tag: string) => Effect.Effect<MangaInfo, ProviderError, Fetcher>
-  readonly getChapters: (info: MangaInfo) => Effect.Effect<ReadonlyArray<Chapter>, ProviderError, Fetcher>
+  readonly getChapters: (
+    info: MangaInfo,
+    range?: ChapterRange
+  ) => Effect.Effect<ReadonlyArray<Chapter>, ProviderError, Fetcher>
   readonly getAllMangas: () => Effect.Effect<ReadonlyArray<MangaInfo>, ProviderError, Fetcher>
 }
 
-export const site = (name: string, build: (base: string) => Site) => (baseUrl: string, clearance?: Clearance) =>
+export interface SiteOptions {
+  readonly crawlDelayMillis?: number | undefined
+}
+
+export const site = (name: string, build: (base: string) => Site, options: SiteOptions = {}) =>
+(baseUrl: string, clearance?: Clearance) =>
   Layer.effect(
     Provider,
     Effect.gen(function*() {
@@ -42,8 +57,9 @@ export const site = (name: string, build: (base: string) => Site) => (baseUrl: s
         ...options,
         headers: { ...headersFor(session, url), ...options?.headers }
       })
+      const paced = yield* makePacer(options.crawlDelayMillis ?? 0)
       const scoped = Fetcher.of({
-        text: (url, options) => fetcher.text(url, withSession(url, options)),
+        text: (url, options) => paced(fetcher.text(url, withSession(url, options))),
         bytes: (url, options) => fetcher.bytes(url, withSession(url, options))
       })
       const impl = build(base)
@@ -52,11 +68,27 @@ export const site = (name: string, build: (base: string) => Site) => (baseUrl: s
         name,
         session,
         getMangaInfo: (tag) => run(impl.getMangaInfo(tag)),
-        getChapters: (info) => run(impl.getChapters(info)),
+        getChapters: (info, range) => run(impl.getChapters(info, range)),
         getAllMangas: () => run(impl.getAllMangas())
       }
     })
   )
+
+const makePacer = Effect.fnUntraced(function*(delayMillis: number) {
+  const semaphore = yield* Semaphore.make(1)
+  let next = 0
+  return <A, E, R>(request: Effect.Effect<A, E, R>) => {
+    if (delayMillis <= 0) return request
+    const turn = Effect.gen(function*() {
+      const wait = next - (yield* Clock.currentTimeMillis)
+      if (wait > 0) yield* Effect.sleep(wait)
+    })
+    const release = Effect.map(Clock.currentTimeMillis, (now) => {
+      next = now + delayMillis
+    })
+    return semaphore.withPermit(Effect.andThen(turn, Effect.ensuring(request, release)))
+  }
+})
 
 export const fetchText = (url: string, options?: RequestOptions) => Fetcher.use((fetcher) => fetcher.text(url, options))
 
@@ -81,11 +113,12 @@ export const tagsFrom = (elements: ReadonlyArray<HTMLElement>, attribute = "href
 
 export const scrapeChapters = (
   chapterUrls: ReadonlyArray<string>,
-  pagesOf: (doc: Document) => Effect.Effect<ReadonlyArray<string>, ParseError>
+  pagesOf: (doc: Document) => Effect.Effect<ReadonlyArray<string>, ParseError>,
+  range?: ChapterRange
 ) =>
   Effect.forEach(
-    [...chapterUrls].reverse(),
-    (url, number) =>
+    [...chapterUrls].reverse().map((url, number) => ({ url, number })).slice(range?.from, range?.to),
+    ({ url, number }) =>
       fetchDocument(url).pipe(
         Effect.flatMap(pagesOf),
         Effect.map((pages) => new Chapter({ number, pages }))

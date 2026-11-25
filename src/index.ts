@@ -31,6 +31,7 @@ export { type Clearance, clearanceFromToken, headersFor, makeSession, type Sessi
 export { type ImageOptions, ImageProcessor } from "./image/ImageProcessor.js"
 export { toFile } from "./output.js"
 export {
+  type ChapterRange,
   collectPages,
   type Document,
   fetchDocument,
@@ -43,9 +44,11 @@ export {
   scrapeChapters,
   type Site,
   site,
+  type SiteOptions,
   tagsFrom
 } from "./provider/provider.js"
 export { AnimeSama } from "./provider/anime-sama.js"
 export { MangaOrigins } from "./provider/manga-origins.js"
 export { SushiScan } from "./provider/sushiscan.js"
 export { SushiScanNet } from "./provider/sushiscan-net.js"
+export { WeebCentral } from "./provider/weebcentral.js"

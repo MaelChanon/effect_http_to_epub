@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect"
 import { parse } from "node-html-parser"
 import { MangaInfo } from "../domain.js"
 import {
+  type ChapterRange,
   collectPages,
   fetchDocument,
   fetchText,
@@ -28,14 +29,15 @@ export const MangaOrigins = site("manga-origins", (base) => {
 
   return {
     getMangaInfo,
-    getChapters: Effect.fn("http_to_epub.MangaOrigins.getChapters")(function*(info: MangaInfo) {
+    getChapters: Effect.fn("http_to_epub.MangaOrigins.getChapters")(function*(info: MangaInfo, range?: ChapterRange) {
       const doc = yield* fetchDocument(`${base}/oeuvre/${info.tag}/`)
       const urls = doc.root
         .querySelectorAll(".ori-chl-row a.ori-chl-corps")
-        .map((a) => `${(a.getAttribute("href") ?? "").replace(/\/+$/, "")}?style=list`)
+        .map((a) => `${(a.getAttribute("href") ?? "").replace(/\/+$/, "")}/?style=list`)
       return yield* scrapeChapters(
         urls,
-        (page) => Effect.succeed(page.root.querySelectorAll(".reading-content img").map(imageSrc))
+        (page) => Effect.succeed(page.root.querySelectorAll(".reading-content img").map(imageSrc)),
+        range
       )
     }),
     getAllMangas: () =>

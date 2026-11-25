@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect"
 import { MangaInfo, type ParseError } from "../domain.js"
 import {
+  type ChapterRange,
   collectPages,
   type Document,
   fetchDocument,
@@ -28,10 +29,10 @@ export const mangaStream = (name: string, pagesOf: (doc: Document) => Effect.Eff
 
     return {
       getMangaInfo,
-      getChapters: Effect.fn(`http_to_epub.${name}.getChapters`)(function*(info: MangaInfo) {
+      getChapters: Effect.fn(`http_to_epub.${name}.getChapters`)(function*(info: MangaInfo, range?: ChapterRange) {
         const doc = yield* fetchDocument(`${base}/catalogue/${info.tag}/`)
         const urls = doc.root.querySelectorAll("#chapterlist ul li a").map((a) => a.getAttribute("href") ?? "")
-        return yield* scrapeChapters(urls, pagesOf)
+        return yield* scrapeChapters(urls, pagesOf, range)
       }),
       getAllMangas: () =>
         collectPages((page) =>

@@ -80,7 +80,8 @@ const make = (overrides: Partial<FetcherOptions>) =>
   })
 
 const buildRequest = (url: string, options: RequestOptions | undefined) => {
-  const headers = { "user-agent": USER_AGENT, ...options?.headers }
+  // undici sends no Accept of its own, unlike fetch, and some firewalls block requests without one
+  const headers = { "user-agent": USER_AGENT, accept: "*/*", ...options?.headers }
   return options?.form
     ? HttpClientRequest.post(url, { headers }).pipe(HttpClientRequest.bodyUrlParams(options.form))
     : HttpClientRequest.get(url, { headers })
