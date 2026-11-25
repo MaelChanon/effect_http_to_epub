@@ -138,7 +138,7 @@ const manifest = Command.make(
 
 const cli = Command.make("http_to_epub").pipe(Command.withSubcommands([build, manifest]))
 
-Command.run(cli, { version: "0.1.0" }).pipe(
+Command.run(cli, { version: "1.1.1" }).pipe(
   Effect.provide(NodeServices.layer),
   NodeRuntime.runMain
 )
